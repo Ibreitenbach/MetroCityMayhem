@@ -23,6 +23,15 @@ class Player(pygame.sprite.Sprite):
         self.attack_duration = 0.3 # Seconds, how long an attack state lasts
         self.invulnerability_timer = 0.0 # For when player gets hit
 
+        # Hit Flash Effect
+        self.is_flashing = False
+        self.flash_timer = 0.0
+        self.flash_duration = 0.1 # Duration of the flash in seconds
+        self.original_image = self.image.copy() # Store original image for flashing
+
+        # Sound Effects (will be assigned from main.py)
+        self.sound_effects = {}
+
         # Player Stats
         self.health = 100
         self.max_health = 100
@@ -105,6 +114,16 @@ class Player(pygame.sprite.Sprite):
         else:
             self.invulnerability_timer = 0.0
 
+        # Update flash timer
+        if self.is_flashing:
+            self.flash_timer -= dt
+            if self.flash_timer <= 0:
+                self.is_flashing = False
+                self.image = self.original_image # Restore original image
+        else: # Ensure original image is used if not flashing (e.g. after level up full heal)
+            if self.image != self.original_image: # Only copy if necessary
+                 self.image = self.original_image
+
 
         # Update position based on velocity and delta time
         self.pos += self.vel * dt  # self.speed is already incorporated into self.vel by main.py
@@ -130,14 +149,16 @@ class Player(pygame.sprite.Sprite):
         if not self.is_punching and not self.is_kicking and self.attack_timer <= 0: # Prevent attacking while already attacking or in cooldown
             self.is_punching = True
             self.attack_timer = self.attack_duration
-            # Placeholder for punch animation/sound later
+            if self.sound_effects.get("punch"):
+                self.sound_effects["punch"].play()
             # print("Player punches!") # For debugging
 
     def kick(self):
         if not self.is_punching and not self.is_kicking and self.attack_timer <= 0: # Prevent attacking while already attacking or in cooldown
             self.is_kicking = True
             self.attack_timer = self.attack_duration
-            # Placeholder for kick animation/sound later
+            if self.sound_effects.get("kick"):
+                self.sound_effects["kick"].play()
             # print("Player kicks!") # For debugging
 
     def get_hitbox(self):
@@ -157,3 +178,28 @@ class Player(pygame.sprite.Sprite):
 
             return pygame.Rect(hitbox_x, hitbox_y, hitbox_width, hitbox_height)
         return None # No hitbox if not attacking
+
+    def take_damage(self, amount):
+        if self.invulnerability_timer > 0: # Already invulnerable, don't take damage
+            return
+
+        actual_damage = max(1, amount - self.defense)
+        self.health -= actual_damage
+        if self.health < 0:
+            self.health = 0
+
+        self.is_flashing = True
+        self.flash_timer = self.flash_duration
+        # Create a temporary white version of the player's image for flashing
+        # This is a simple way for solid color sprites. For complex sprites, tinting or overlay might be better.
+        # As player.image is just a blue surface, we can create a white version easily.
+        flash_image_surf = self.original_image.copy()
+        flash_image_surf.fill(pygame.Color('white'))
+        self.image = flash_image_surf
+
+
+        if self.sound_effects.get("take_damage"):
+            self.sound_effects["take_damage"].play()
+
+        self.invulnerability_timer = 0.5 # Standard invulnerability after taking damage
+        print(f"Player took {actual_damage} damage, health: {self.health}")

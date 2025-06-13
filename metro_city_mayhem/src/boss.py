@@ -38,9 +38,18 @@ class Boss(Enemy):
             self.rect = self.image.get_rect()
             self.rect.midbottom = original_rect_midbottom # Restore position
 
+        self.original_image = self.image.copy() # Ensure original_image is based on the final boss image
+
         # print(f"Boss {self.__class__.__name__} initialized. State: {self.current_state}, HP: {self.health}")
 
     def update(self, dt, stage_width, screen_height): # Ensure it takes all params
+        # Flash timer logic is now handled by Enemy's update method
+        # if self.is_flashing:
+        #     self.flash_timer -= dt
+        #     if self.flash_timer <= 0:
+        #         self.is_flashing = False
+        #         self.image = self.original_image
+
         if self.special_attack_cooldown_timer > 0:
             self.special_attack_cooldown_timer -= dt
         else:
