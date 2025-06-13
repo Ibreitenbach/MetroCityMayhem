@@ -8,6 +8,7 @@ class Enemy(pygame.sprite.Sprite):
         self.image = pygame.Surface((32, 64)) # Placeholder size
         self.image.fill(pygame.Color('red'))   # Red color for enemies
         self.rect = self.image.get_rect()
+        self.original_image = self.image.copy() # Store original image
 
         # Position and Movement
         self.pos = pygame.math.Vector2(start_pos_x, start_pos_y)
@@ -30,12 +31,28 @@ class Enemy(pygame.sprite.Sprite):
         self.player_ref = player_ref # Reference to the player object
         self.hit_cooldown_timer = 0.0 # For when enemy gets hit
 
-    def update(self, dt, screen_width=None, screen_height=None): # Added screen_width/height for consistent signature with Player
+        # Hit Flash Effect
+        self.is_flashing = False
+        self.flash_timer = 0.0
+        self.flash_duration = 0.1 # Duration of the flash in seconds
+
+    def update(self, dt, stage_width=None, screen_height=None): # Renamed screen_width to stage_width for clarity
         # Update hit cooldown timer
         if self.hit_cooldown_timer > 0:
             self.hit_cooldown_timer -= dt
         else:
             self.hit_cooldown_timer = 0.0
+
+        # Update flash timer
+        if self.is_flashing:
+            self.flash_timer -= dt
+            if self.flash_timer <= 0:
+                self.is_flashing = False
+                self.image = self.original_image # Restore original image
+        else: # Ensure original image is used if not flashing
+            if self.image != self.original_image:
+                self.image = self.original_image
+
 
         # AI: Move towards player if in detection_radius and not already attacking (basic version)
         if not self.is_attacking and self.player_ref:
@@ -83,11 +100,32 @@ class Enemy(pygame.sprite.Sprite):
 
         self.rect.midbottom = (round(self.pos.x), round(self.pos.y)) # Re-apply rect after all pos adjustments
 
+    def take_damage(self, amount):
+        if self.hit_cooldown_timer > 0: # Similar to player's invulnerability, but for taking hits rapidly
+            return
+
+        actual_damage = max(1, amount - self.defense) # Enemies also have defense
+        self.health -= actual_damage
+        if self.health < 0:
+            self.health = 0
+
+        self.is_flashing = True
+        self.flash_timer = self.flash_duration
+
+        # Create a temporary white version of the enemy's image for flashing
+        flash_image_surf = self.original_image.copy()
+        flash_image_surf.fill(pygame.Color('white')) # Simple white flash
+        self.image = flash_image_surf
+
+        self.hit_cooldown_timer = 0.3 # Short cooldown to prevent instant multi-hits from single attack
+        # print(f"{self.__class__.__name__} took {actual_damage} damage, health: {self.health}")
+
 
 class Thug(Enemy):
     def __init__(self, start_pos_x, start_pos_y, player_ref):
         super().__init__(start_pos_x, start_pos_y, player_ref)
         self.image.fill(pygame.Color('lightcoral'))
+        self.original_image = self.image.copy() # Re-assign original_image for Thug
 
 
 class Bruiser(Enemy):
@@ -104,6 +142,7 @@ class Bruiser(Enemy):
 
         self.image = pygame.Surface((40, 70))
         self.image.fill(pygame.Color('darkred'))
+        self.original_image = self.image.copy() # Re-assign original_image for Bruiser
 
         current_midbottom = self.rect.midbottom
         self.rect = self.image.get_rect()
